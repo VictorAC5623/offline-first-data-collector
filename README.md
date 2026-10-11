@@ -5,7 +5,7 @@ App Android para que el **staff de un preuniversitario** capture datos de **pros
 - **Nombre visible:** Newman-Registro (`app/src/main/res/values/strings.xml`)
 - **Proyecto Gradle:** PreuCapturaApp
 - **Paquete / applicationId:** `com.pre.capturadatos`
-- **Versión:** 1.0 (versionCode 1)
+- **Versión:** 1.1 (versionCode 2)
 
 ---
 
@@ -29,10 +29,17 @@ Campos:
 | Año de curso | Chips | `Primero`, `Segundo`, `Tercero`, `Graduado` |
 | ¿Inscrito en otro preuniversitario? | Chips | `Sí` / `No` |
 
-- El botón **Enviar** se habilita solo cuando todo es válido.
-- Al enviar: guarda en Firestore, reproduce un sonido de éxito (`res/raw/success_sound.mp3`), muestra "¡Guardado con éxito!" durante 3 s y limpia el formulario para el siguiente prospecto.
+- El botón **Enviar** se habilita solo cuando todo es válido. El teléfono debe empezar con `09` (celular de Ecuador).
+- Al enviar: guarda primero en un **respaldo CSV local** y luego en Firestore (`CapturaStore.kt`), reproduce un sonido de éxito (`res/raw/success_sound.mp3`), muestra "¡Guardado con éxito!" durante 3 s, limpia el formulario y deja el cursor en *Nombre* para el siguiente prospecto.
+- Debajo del botón se muestra el texto de consentimiento de uso de datos.
+- Arriba: estado de sincronización ("N registros pendientes de subir" / "Todo sincronizado · hora") y registros de hoy en ese celular.
+- Ayudas de captura: sugerencias de colegio con un toque (los más usados en el celular) y aviso si el teléfono ya se registró en ese celular.
+- **QR WhatsApp:** muestra un QR que abre el chat del preuniversitario con el mensaje "vengo del stand… (código STAND-AAAAMMDD)". El bot traduce la fecha del código al evento del día.
 - Logo del preuniversitario como marca de agua de fondo (`res/drawable/logo_preu.PNG`).
-- Botón discreto **"Cerrar Sesión (Solo Staff)"** al final del formulario.
+- **Opciones de staff** (al final, protegidas con PIN una vez creado):
+  - **Modo Stand:** fija la app en pantalla (screen pinning) y mantiene la pantalla encendida. Para que salir pida el PIN del celular, activar en Ajustes › Seguridad › Fijar aplicaciones › "Pedir PIN para dejar de fijar".
+  - **Exportar respaldo (CSV):** comparte el CSV local por WhatsApp, correo o Drive.
+  - **Cerrar sesión:** bloqueado si hay registros sin subir o si el modo Stand está activo.
 
 ### 3. Navegación (`MainActivity.kt`)
 - Un `AuthStateListener` decide qué pantalla mostrar: `LoginScreen` si no hay usuario, `DataCaptureScreen` si lo hay. No hay NavHost (aunque la dependencia `navigation-compose` está incluida).
@@ -53,9 +60,17 @@ Colección: **`prospectos`** — un documento por registro (ID automático).
   "inscrito_otro_preu": false,
   "fecha_registro": "<serverTimestamp>",
   "staff_uid": "<uid del usuario logueado>",
-  "staff_email": "staff@ejemplo.com"
+  "staff_email": "staff@ejemplo.com",
+  "capturado_en": "<Timestamp del reloj del celular>",
+  "device_id": "<UUID del celular, generado una vez>",
+  "app_version": "1.1",
+  "consentimiento": "v1-2026-10"
 }
 ```
+
+- Desde la 1.1 el ID del documento es un **UUID generado en el celular** (`document(id).set(...)`), no `add()`: si el envío se repite no se duplica.
+- `fecha_registro` es la hora en que el registro llega al servidor; `capturado_en` es la hora real del registro (puede ser mucho antes si el celular estuvo sin internet). El evento/feria se asigna con `capturado_en`.
+- Un workflow de n8n copia cada 3 minutos las capturas nuevas a Supabase (`crm.capturas` → `crm.leads`).
 
 ## Modo offline-first
 
@@ -113,7 +128,8 @@ captura_datos/
    - Habilitar **Authentication → Google**.
    - Registrar las huellas **SHA-1/SHA-256** de los keystores de debug y release (necesario para Google Sign-In).
    - Crear la base **Cloud Firestore**.
-4. Compilar y ejecutar:
+4. Para firmar el release: copiar `keystore.properties.example` como `keystore.properties` y apuntarlo a la llave **original** (la de la versión instalada).
+5. Compilar y ejecutar:
    ```bash
    ./gradlew assembleDebug
    ```

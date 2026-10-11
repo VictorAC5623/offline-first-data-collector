@@ -13,3 +13,15 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Configuracion de Firebase y firma: nunca al repositorio
+google-services.json
+*.jks
+*.keystore
+keystore.properties
+
+# Binarios y volcados
+/app/release
+*.apk
+*.aab
+repomix-output.xml

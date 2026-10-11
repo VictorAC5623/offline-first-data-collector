@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.gms.google.services)
+}
+
+// La llave de firma vive fuera del repo (keystore.properties en la raiz del proyecto).
+// Debe ser SIEMPRE la misma con la que se firmo la version instalada: con otra llave
+// Android no deja actualizar y habria que desinstalar, perdiendo los registros pendientes.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -12,8 +22,8 @@ android {
         applicationId = "com.pre.capturadatos"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -21,8 +31,20 @@ android {
         }
     }
 
+    signingConfigs {
+        if (keystoreProps.containsKey("storeFile")) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -42,6 +64,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -88,4 +111,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.5")
     implementation(libs.play.services.auth) // <-- AÑADE ESTA LÍNEA
     implementation(libs.androidx.material.icons.extended) // <-- AÑADE ESTA LÍNEA
+
+    // QR del stand (solo genera la imagen, sin camara)
+    implementation(libs.zxing.core)
 }
